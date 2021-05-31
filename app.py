@@ -6,11 +6,14 @@ import pandas as pd
 
 #TODO: load csv file
 
-exp_tensile_data = pd.read_csv('EN_GJS_1050_6_Buchholz_17_1.csv')
-
-
+# = pd.read_csv('EN_GJS_1050_6_Buchholz_17_1.csv')
 
 st.title('Tensile Testing Evaluation')
+
+uploaded_file = st.file_uploader("Choose a file")
+if uploaded_file is not None:
+  print(uploaded_file.name)
+  exp_tensile_data = pd.read_csv(uploaded_file)
 
 diameter = st.number_input('Enter specimen diameter')
 area = np.pi*(diameter**2)/4
@@ -40,11 +43,11 @@ diagram_data = diagram_data.transpose()
 
 diagram_df = pd.DataFrame(data=diagram_data, columns=['stress', 'ext', 'trav'])
 #print(diagram_data)
-#diagram_df
+diagram_df
 
 threshold_stress = st.number_input('Enter threshold stress')
 
-diagram_df['ext'].values[diagram_df['stress'] > threshold_stress] = np.nan
+diagram_df['ext'].values[diagram_df['stress'] > threshold_stress+2] = np.nan
 diagram_df['trav'].values[diagram_df['stress'] < threshold_stress-2] = np.nan
 
 #save_value
@@ -57,7 +60,7 @@ fig = px.line(diagram_df, x=['ext', 'trav'], y='stress')
 st.write(fig)
 
 ext_df = diagram_df[diagram_df['stress'] < threshold_stress]
-trav_df = diagram_df[diagram_df['stress'] > threshold_stress-2]
+trav_df = diagram_df[diagram_df['stress'] > threshold_stress]
 
 #ext_df
 #trav_df
@@ -75,13 +78,33 @@ manual_scaling = st.number_input('Enter scaling factor')
 
 diagram_df['trav'] /= scaling_factor/manual_scaling#*scaling_factor_2
 ext_df = diagram_df[diagram_df['stress'] < threshold_stress]
-trav_df = diagram_df[diagram_df['stress'] > threshold_stress-2]
+trav_df = diagram_df[diagram_df['stress'] > threshold_stress]
 
-
+distance_scaling = st.number_input('Enter distance scaling factor')
 
 diagram_df['trav'] -= trav_df['trav'].values[0]-ext_df['ext'].values[-1]
+diagram_df['ext'].values[diagram_df['stress'] > threshold_stress-distance_scaling] = np.nan
+diagram_df['trav'].values[diagram_df['stress'] < threshold_stress+distance_scaling] = np.nan
 
+ext_values = diagram_df['ext'].values
+trav_values = diagram_df['trav'].values
 
+total_values = []
 
-fig = px.line(diagram_df, x=['ext', 'trav'], y='stress')
+for i in range(len(ext_values)):
+    if np.isnan(ext_values[i]):
+        total_values.append(trav_values[i])
+    else:
+        total_values.append(ext_values[i])
+
+diagram_df['total'] = total_values
+diagram_df['total'] = diagram_df['total'].interpolate()
+
+diagram_df
+
+fig = px.line(diagram_df, x=['total'], y='stress')
+
 st.write(fig)
+
+if st.button('Save Data'):
+    diagram_df.to_csv('total_curve_'+uploaded_file.name)
